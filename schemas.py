@@ -1,0 +1,18 @@
+import datetime
+from typing import Optional
+
+from pydantic import BaseModel
+
+
+class TaskSchemaInner(BaseModel):
+    fn_name: str
+    args: list
+    kwargs: dict
+    start_datetime_stamp: datetime.datetime
+    max_working_time: Optional[int]
+    tries: int
+    dependencies: list
+
+
+class TaskSchema(TaskSchemaInner):
+    dependencies: list[TaskSchemaInner]
