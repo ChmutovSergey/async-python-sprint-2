@@ -1,8 +1,10 @@
+import os
 import logging
 from logging.config import dictConfig
 
 
 LOG_LEVEL = "DEBUG"
+DIR_NAME = os.path.join(os.path.dirname(os.path.realpath(__file__)), "logs")
 
 
 def get_logger(logger_name: str, log_level: str = "INFO") -> logging.Logger:
@@ -25,7 +27,7 @@ def get_logger(logger_name: str, log_level: str = "INFO") -> logging.Logger:
                 "level": log_level,
                 "class": "logging.handlers.RotatingFileHandler",
                 "formatter": "default",
-                "filename": "log_file.log",
+                "filename": DIR_NAME + "/log_file.log",
                 "maxBytes": 500000,
                 "backupCount": 10
             }
