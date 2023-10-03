@@ -1,14 +1,12 @@
 import datetime
-import random
-import time
-import uuid
 import json
+import random
+import uuid
 from urllib.request import urlopen
+
 from job import Job
 from logger import logger
 from utils import ERR_MESSAGE_TEMPLATE, CITIES
-
-pause = 0
 
 
 class YandexWeatherAPI:
@@ -60,7 +58,6 @@ def task_for_test_0():
     city_name_for_test = "MOSCOW"
     ywAPI = YandexWeatherAPI()
     resp = ywAPI.get_forecasting(city_name_for_test)
-    time.sleep(pause * 1)
 
     return resp.get("info")
 
@@ -75,7 +72,6 @@ def task_for_test_1():
     city_name_for_test = "PARIS"
     ywAPI = YandexWeatherAPI()
     resp = ywAPI.get_forecasting(city_name_for_test)
-    time.sleep(pause * 1)
 
     return resp.get("info")
 
@@ -90,7 +86,6 @@ def task_for_test_2():
     city_name_for_test = "LONDON"
     ywAPI = YandexWeatherAPI()
     resp = ywAPI.get_forecasting(city_name_for_test)
-    time.sleep(pause * 1)
 
     return resp.get("info")
 
@@ -105,7 +100,6 @@ def task_for_test_3():
     city_name_for_test = "BERLIN"
     ywAPI = YandexWeatherAPI()
     resp = ywAPI.get_forecasting(city_name_for_test)
-    time.sleep(pause * 1)
 
     return resp.get("info")
 
@@ -120,7 +114,6 @@ def task_for_test_inner_0():
     city_name_for_test = "BEIJING"
     ywAPI = YandexWeatherAPI()
     resp = ywAPI.get_forecasting(city_name_for_test)
-    time.sleep(pause * 1)
 
     return resp.get("info")
 
@@ -135,7 +128,6 @@ def task_for_test_inner_1():
     city_name_for_test = "KAZAN"
     ywAPI = YandexWeatherAPI()
     resp = ywAPI.get_forecasting(city_name_for_test)
-    time.sleep(pause * 1)
 
     return resp.get("info")
 
@@ -150,7 +142,6 @@ def task_for_test_inner_2():
     city_name_for_test = "SPETERSBURG"
     ywAPI = YandexWeatherAPI()
     resp = ywAPI.get_forecasting(city_name_for_test)
-    time.sleep(pause * 1)
 
     return resp.get("info")
 
@@ -165,7 +156,6 @@ def task_for_test_inner_3():
     city_name_for_test = "VOLGOGRAD"
     ywAPI = YandexWeatherAPI()
     resp = ywAPI.get_forecasting(city_name_for_test)
-    time.sleep(pause * 1)
 
     return resp.get("info")
 
@@ -206,7 +196,7 @@ def add_task(scheduler):
             fn=worker_tasks[f"task_for_test_{i % 4}"],
             args=[],
             kwargs={},
-            start_at=get_start_time(),
+            start_datetime=get_start_time(),
             max_working_time=20,
             tries=0,
             dependencies=[],
@@ -235,7 +225,7 @@ def add_task(scheduler):
             fn=worker_tasks[f"task_for_test_{i % 4}"],
             args=[],
             kwargs={},
-            start_at=get_start_time(),
+            start_datetime=get_start_time(),
             max_working_time=20,
             tries=0,
             dependencies=[job_inner0, job_inner1, job_inner2, job_inner3],

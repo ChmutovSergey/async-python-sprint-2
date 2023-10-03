@@ -19,18 +19,18 @@ def main():
     scheduler = Scheduler()
     scheduler_stop(scheduler)
 
-    scheduler = Scheduler(stop_when_queue_is_empty=False)
+    scheduler = Scheduler(stop_when_queue_is_empty=True)
     scheduler_restart(scheduler)
 
     with ThreadPoolExecutor() as pool:
         pool.submit(scheduler.run)
         pool.submit(add_task(scheduler))
 
-    while threading.active_count() > 0:
-        pass
+    for task in scheduler.tasks:
+        task.response_future.join()
 
     for task in scheduler.tasks:
-        print(task.rezult)
+        print(task.result)
 
     assert len(scheduler.tasks_completed) == 45
     assert len(scheduler.tasks_fail) == 0
