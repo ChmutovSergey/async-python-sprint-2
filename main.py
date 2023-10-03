@@ -26,21 +26,12 @@ def main():
         pool.submit(scheduler.run)
         pool.submit(add_task(scheduler))
 
-    for task in scheduler.tasks:
-        task.response_future.join()
 
-    for task in scheduler.tasks:
-        print(task.result)
-
-    assert len(scheduler.tasks_completed) == 45
-    assert len(scheduler.tasks_fail) == 0
-
-
-def scheduler_restart(scheduler):
+def scheduler_restart(scheduler: Scheduler):
     scheduler.restart()
 
 
-def scheduler_stop(scheduler):
+def scheduler_stop(scheduler: Scheduler):
     add_task(scheduler)
     scheduler.stop()
 

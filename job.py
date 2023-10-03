@@ -44,7 +44,7 @@ class Job:
         self.status = status
         self.check_dependencies_task_start_datetime()
 
-    def set_next_start_datetime(self) -> datetime:
+    def set_next_start_datetime(self) -> None:
         """
         Метод вычисляет новое время запуска Job если он не смог по какой-то причины быть
         выполнен в свое время
