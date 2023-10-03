@@ -5,10 +5,10 @@ from logger import logger
 
 
 class JobStatus(Enum):
-    in_queue = 0
-    in_progress = 1
-    completed = 2
-    error = 3
+    IN_QUEUE = 0
+    IN_PROGRESS = 1
+    COMPLETED = 2
+    ERROR = 3
 
 
 class Job:
@@ -16,7 +16,6 @@ class Job:
     Класс задачи для планировщика
 
     """
-
     def __init__(
             self,
             id,
@@ -38,13 +37,12 @@ class Job:
         self.tries = tries
         self.dependencies = dependencies if dependencies is not None else []
         self.time_step = datetime.timedelta(minutes=10)
-        self.response_future = None
         self.id = id
         self.result = None
         self.status = status
         self.check_dependencies_task_start_datetime()
 
-    def set_next_start_datetime(self) -> None:
+    def set_next_start_datetime(self):
         """
         Метод вычисляет новое время запуска Job если он не смог по какой-то причины быть
         выполнен в свое время
@@ -77,7 +75,7 @@ class Job:
         :return:
         """
         for dependencies_task in self.dependencies:
-            if dependencies_task.response_future and dependencies_task.response_future.done():
+            if dependencies_task.status == JobStatus.COMPLETED:
                 continue
             else:
                 return False
@@ -95,7 +93,7 @@ class Job:
 
     def __lt__(self, other) -> bool:
         """
-        Метод переопределяет сортировку так чтоб в начале списка были Job с статусом in_queue и
+        Метод переопределяет сортировку так чтоб в начале списка были Job со статусом in_queue и
         ближайшим временем.
 
         :param other:

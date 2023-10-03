@@ -1,10 +1,8 @@
 import datetime
-import heapq
 import json
-import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
-from typing import Generator, Optional
+from functools import wraps
+from typing import Optional
 
 from job import Job, JobStatus
 from logger import logger
@@ -12,17 +10,26 @@ from schemas import TaskSchema
 from tasks.tasks import worker_tasks
 
 
+def coroutine(func):
+    @wraps(func)
+    def inner(*args, **kwargs):
+        fn = func(*args, **kwargs)
+        fn.send(None)
+        return fn
+
+    return inner
+
+
 class Scheduler:
-    def __init__(self, pool_size: int = 10, stop_when_queue_is_empty=False):
+    def __init__(self, pool_size: int = 10):
         """
         Класс планировщик. Принимает Job и запускает их в соответствии с расписанием
 
-        :param pool_size: размер пула для ThreadPoolExecutor
-        :param stop_when_queue_is_empty: поведение планировщика при пустой очереди
+        :param pool_size: размер пула
         """
         self._pool_size: int = pool_size
         self.tasks: list[Job] = []
-        self.stop_when_queue_is_empty = stop_when_queue_is_empty
+        self.scheduler_run = False
 
     def schedule(self, task: Job):
         """
@@ -31,7 +38,7 @@ class Scheduler:
         :param task:
         :return:
         """
-        logger.info('Try add task')
+        logger.info("Try add task")
 
         if self.get_task_in_scheduler_tasks(task.id):
             logger.warning("The task has already been added")
@@ -42,10 +49,10 @@ class Scheduler:
                 if dependencies_task not in self.tasks:
                     self.schedule(dependencies_task)
 
-        heapq.heappush(self.tasks, task)
+        self.tasks.append(task)
         logger.info("Task is added in Scheduler")
 
-    def get_task(self) -> Generator[Job, None, None]:
+    def get_task(self, target):
         """
         Метод генератор смотрит когда, стартует следующий Job. Ждет этого момента.
         Если у Job есть не выполненные зависимости откладывает ее. Если зависимостей нет или они
@@ -54,9 +61,9 @@ class Scheduler:
         :return: Job
         """
 
-        while self._stop_when_queue_is_empty:
+        while self.scheduler_run:
             self.tasks.sort()
-            if self.tasks[0].status == JobStatus(0):
+            if self.tasks[0].status == JobStatus.IN_QUEUE:
                 time_next_task = self.tasks[0].start_datetime
                 now_datetime = datetime.datetime.now()
 
@@ -69,75 +76,53 @@ class Scheduler:
                 if self.tasks[0].check_dependencies_task_is_complite() is False:
                     self.tasks[0].set_next_start_datetime()
 
-                logger.info("Geting task")
-                yield self.tasks[0]
-            else:
-                logger.info("There are no scheduled tasks in the scheduler. Waiting for 5 minutes")
-                time.sleep(5 * 60)
+                if len(self.count_in_queue_task(JobStatus.IN_PROGRESS)) < self._pool_size:
+                    logger.info("Geting task")
+                    self.tasks[0].status = JobStatus.IN_PROGRESS
+                    target.send(self.tasks[0])
+                else:
+                    logger.info("Pool size more than 10")
 
-    def result_iterator(self) -> Generator[None, Job, None]:
-        """
-        Корутина получает Job с футурой и обрабатывает ее
-
-        :return:
-        """
-        while True:
-            task = (yield)
-            logger.info("Add result task in work_response")
-            task.result = task.response_future.result(timeout=task.max_working_time)
-
-            if task.response_future.done():
-                task.status = JobStatus(2)
-
-            elif task.response_future.done() is False and task.tries:
-                task.set_next_start_datetime()
-                task.tries -= 1
-                task.status = JobStatus(0)
-                self.schedule(task)
-
-            else:
-                task.status = JobStatus(3)
-
-    @property
-    def _stop_when_queue_is_empty(self) -> bool:
-        """
-        Метод регулирует поведение планировщика при пустой очереди.
-
-        :return:
-        """
-        if self.stop_when_queue_is_empty:
-            return bool(self.tasks)
-        return True
-
-    def run(self) -> None:
-        """
-        Метод запускает выполнение добавленных Job
-
-        :return:
-        """
-        logger.info('Scheduler run.')
-
-        result_iterator = self.result_iterator()
-        next(result_iterator)
-
-        with ThreadPoolExecutor(max_workers=self._pool_size) as pool:
-            while task := next(self.get_task()):
-                task.status = JobStatus(1)
-                task.response_future = pool.submit(task.run)
+    @coroutine
+    def execute_job(self):
+        while task := (yield):
+            try:
                 logger.info(
-                    f"Number of tasks {len(self.count_in_queue_task)} from {len(self.tasks)}, "
-                    f"number of active_count {threading.active_count()}"
+                    f"Number of tasks {len(self.count_in_queue_task(JobStatus.IN_QUEUE))} "
+                    f"from {len(self.tasks)}, "
+                    f"Active tasks {len(self.count_in_queue_task(JobStatus.IN_PROGRESS))}."
                 )
-                pool.submit(result_iterator.send, task)
+                task.rezult = task.run()
+                task.status = JobStatus.COMPLETED
+            except Exception as err:
+                logger.error(f"Job id={task.id} is fail with {err}")
+                if task.tries > 0:
+                    task.set_next_start_datetime()
+                    task.tries -= 1
+                    task.status = JobStatus.IN_QUEUE
+                else:
+                    task.status = JobStatus.ERROR
 
-    @property
-    def count_in_queue_task(self) -> list[Job]:
+    def run(self):
+        """
+        Метод генератор смотрит когда, стартует следующий Job. Ждет этого момента.
+        Если у Job есть не выполненные зависимости откладывает ее. Если зависимостей нет или они
+        завершены передает Job на выполнение
+
+        :return:
+        """
+        logger.info("Scheduler run")
+        self.scheduler_run = True
+        execute = self.execute_job()
+        self.get_task(execute)
+
+    def count_in_queue_task(self, status) -> list[Job]:
         """
         Метод возвращает количество Job в очереди.
 
         :return:
         """
-        return [x for x in self.tasks if x.status == JobStatus(0)]
+        return [x for x in self.tasks if x.status == status]
 
     def get_or_create_job(
             self,
@@ -154,8 +139,8 @@ class Scheduler:
         """
         Метод получает все необходимые для создания Job параметры. Пытается найти в добавленных
         с таким же id. Если находит то, возвращает найденный, если не находит то, создает новый и
-        возвращает его. Если при завершении статус Job был in_progress и он не был завершен
-        то он переводится в in_queue чтоб стартjвать Job заново.
+        возвращает его. Если при завершении статус Job был in_progress и он не был завершен,
+        то он переводится в in_queue чтоб стартовать Job заново.
 
         :param id_job:
         :param fn_name:
@@ -180,7 +165,7 @@ class Scheduler:
             start_datetime=start_datetime,
             max_working_time=max_working_time,
             tries=tries,
-            status=JobStatus(0) if status == JobStatus(1) else status,
+            status=JobStatus.IN_QUEUE if status == JobStatus.IN_PROGRESS else status,
             dependencies=dependencies
         )
 
@@ -188,7 +173,7 @@ class Scheduler:
         """
         Пытается найти в добавленных Job с таким же id. Если находит то, возвращает найденный,
         если не находит то, создает новый и
-        возвращает его.
+        возвращает его
 
         :param id_job:
         :return:
@@ -246,13 +231,15 @@ class Scheduler:
             )
             self.schedule(task=task_job)
         logger.info("Scheduler restart")
+        self.run()
 
-    def stop(self) -> None:
+    def stop(self):
         """
         Метод останавливает работу планировщика.
 
         :return:
         """
+        self.scheduler_run = False
         tasks_json = []
         for task in self.tasks:
             task_dict = task.__dict__

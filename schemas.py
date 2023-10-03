@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from job import JobStatus
 
 
-class TaskSchemaInnner(BaseModel):
+class TaskSchemaInner(BaseModel):
     id: UUID
     fn_name: str
     args: list
@@ -18,5 +18,5 @@ class TaskSchemaInnner(BaseModel):
     dependencies: list
 
 
-class TaskSchema(TaskSchemaInnner):
-    dependencies: list[TaskSchemaInnner]
+class TaskSchema(TaskSchemaInner):
+    dependencies: list[TaskSchemaInner]
