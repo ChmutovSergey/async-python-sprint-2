@@ -1,5 +1,7 @@
 import datetime
 from enum import Enum
+from uuid import UUID
+from typing import Optional
 
 from logger import logger
 
@@ -18,15 +20,15 @@ class Job:
     """
     def __init__(
             self,
-            id,
+            id: UUID,
             fn,
-            args=None,
-            kwargs=None,
-            start_datetime=datetime.datetime.now(),
-            max_working_time=None,
-            tries=0,
-            dependencies=None,
-            status=JobStatus(0)
+            args: Optional[list] = None,
+            kwargs: Optional[dict] = None,
+            start_datetime: datetime = datetime.datetime.now(),
+            max_working_time: int = None,
+            tries: int = 0,
+            dependencies: Optional[list] = None,
+            status: JobStatus = JobStatus(0)
     ):
         self._fn = fn
         self.fn_name = fn.__name__
@@ -68,7 +70,7 @@ class Job:
     def stop(self):
         pass
 
-    def check_dependencies_task_is_complite(self):
+    def check_dependencies_task_is_complite(self) -> bool:
         """
         Метод проверяет что все зависимости выполнены.
 

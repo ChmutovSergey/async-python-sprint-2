@@ -2,7 +2,8 @@ import datetime
 import json
 import time
 from functools import wraps
-from typing import Optional
+from typing import Optional, Generator
+from uuid import UUID
 
 from job import Job, JobStatus
 from logger import logger
@@ -52,7 +53,7 @@ class Scheduler:
         self.tasks.append(task)
         logger.info("Task is added in Scheduler")
 
-    def get_task(self, target):
+    def get_task(self, target: Generator):
         """
         Метод генератор смотрит когда, стартует следующий Job. Ждет этого момента.
         Если у Job есть не выполненные зависимости откладывает ее. Если зависимостей нет или они
@@ -60,7 +61,6 @@ class Scheduler:
 
         :return: Job
         """
-
         while self.scheduler_run:
             self.tasks.sort()
             if self.tasks[0].status == JobStatus.IN_QUEUE:
@@ -92,7 +92,7 @@ class Scheduler:
                     f"from {len(self.tasks)}, "
                     f"Active tasks {len(self.count_in_queue_task(JobStatus.IN_PROGRESS))}."
                 )
-                task.rezult = task.run()
+                task.result = task.run()
                 task.status = JobStatus.COMPLETED
             except Exception as err:
                 logger.error(f"Job id={task.id} is fail with {err}")
@@ -126,15 +126,15 @@ class Scheduler:
 
     def get_or_create_job(
             self,
-            id_job,
-            fn_name,
-            args,
-            kwargs,
-            start_datetime,
-            max_working_time,
-            tries,
-            status,
-            dependencies
+            id_job: UUID,
+            fn_name: str,
+            args: Optional[list],
+            kwargs: Optional[dict],
+            start_datetime: datetime,
+            max_working_time: int,
+            tries: int,
+            status: JobStatus,
+            dependencies: Optional[list]
     ) -> Job:
         """
         Метод получает все необходимые для создания Job параметры. Пытается найти в добавленных
@@ -169,7 +169,7 @@ class Scheduler:
             dependencies=dependencies
         )
 
-    def get_task_in_scheduler_tasks(self, id_job) -> Optional[Job]:
+    def get_task_in_scheduler_tasks(self, id_job: UUID) -> Optional[Job]:
         """
         Пытается найти в добавленных Job с таким же id. Если находит то, возвращает найденный,
         если не находит то, создает новый и
